@@ -5,6 +5,7 @@ A Tempermonkey script for rewriting `<a>` redirect href links to its target url.
 ## Supported redirect links
 
 - YouTube
+- Zhihu
 
 ## How it works
 
