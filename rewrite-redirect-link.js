@@ -61,7 +61,6 @@
   // Function to scan for new links and add them to the queue
   function scanForLinks(node) {
     let searchPattern = '';
-    console.debug(window.location.hostname);
 
     // Regular expressions for different hostnames
     const youtubeRegex = /(^|\.)youtube\.com$/;
