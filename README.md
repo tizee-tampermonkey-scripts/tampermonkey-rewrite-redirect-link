@@ -6,6 +6,13 @@ A Tempermonkey script for rewriting `<a>` redirect href links to its target url.
 
 - YouTube
 - Zhihu
+- X
+
+## Cloudflare worker for short urls 
+
+Deploy `cloudflare-worker.js` as a serverless cloudflare worker.
+
+see [https://developers.cloudflare.com/workers/](https://developers.cloudflare.com/workers/)
 
 ## How it works
 
