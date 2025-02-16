@@ -1,22 +1,29 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee/tempermonkey-rewrite-redirect-link
-// @version      1.5
+// @version      1.6.1
 // @description  Rewrites YouTube redirect links to their target URLs directly, using a queue and a custom debounce function.
+// @downloadURL  https://raw.githubusercontent.com/tizee/tempermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
+// @updateURL    https://raw.githubusercontent.com/tizee/tempermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @author       tizee
 // @match        *://*.youtube.com/*
 // @match        *://*.zhihu.com/*
 // @match        *://*.x.com/*
 // @grant        GM_xmlhttpRequest
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @license      MIT
 // ==/UserScript==
 
 (function () {
     'use strict';
+    const resolverKey = "RESOLVER";
 
     // Queue to store links that need to be processed
     const linkQueue = new Set();
     let isShortUrl = false;
-    const expandLinkApi = 'https://shorturl-expand.pobomp.workers.dev/?shorturl='
+    let expandLinkApi = GM_getValue(resolverKey) || 'https://shorturl-expand.pobomp.workers.dev/?shorturl=';
 
     function expandShortLink(shortLink, callback) {
         GM_xmlhttpRequest({
@@ -142,6 +149,15 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
+    // Register menu command for api
+    GM_registerMenuCommand("Set short url resovler API", () => {
+      const resolver = prompt("Enter your short url resolver:");
+      if (token) {
+        GM_setValue(resolverKey, resolver);
+        expandLinkApi = resolver;
+        alert("url saved successfully!");
+      }
+    });
     // Run the script
     main();
 })();
