@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee/tempermonkey-rewrite-redirect-link
-// @version      1.6.2
+// @version      1.6.3
 // @description  Rewrites YouTube redirect links to their target URLs directly, using a queue and a custom debounce function.
 // @downloadURL  https://raw.githubusercontent.com/tizee/tempermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @updateURL    https://raw.githubusercontent.com/tizee/tempermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
@@ -152,7 +152,7 @@
     // Register menu command for api
     GM_registerMenuCommand("Set short url resovler API", () => {
       const resolver = prompt("Enter your short url resolver:");
-      if (token) {
+      if (resolver) {
         GM_setValue(resolverKey, resolver);
         expandLinkApi = resolver;
         alert("url saved successfully!");
