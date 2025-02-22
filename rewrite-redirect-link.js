@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link
-// @version      1.6.4
+// @version      1.6.5
 // @description  Rewrites YouTube redirect links to their target URLs directly, using a queue and a custom debounce function.
 // @downloadURL  https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @updateURL    https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
@@ -23,20 +23,21 @@
     // Queue to store links that need to be processed
     const linkQueue = new Set();
     let isShortUrl = false;
-    let expandLinkApi = GM_getValue(resolverKey) || 'https://your-worker.workers.dev/?shorturl=';
+    let expandLinkApi = GM_getValue(resolverKey) || 'https://your-worker.workers.dev';
 
     function expandShortLink(shortLink, callback) {
+        console.debug(`[short url] request ${expandLinkApi}`);
         GM_xmlhttpRequest({
             method: "GET",
-            url: `${expandLinkApi}${encodeURIComponent(shortLink)}`,
+            url: `${expandLinkApi}/?shorturl=${encodeURIComponent(shortLink)}`,
             onload: function(response) {
                 if (response.status >= 200 && response.status < 300) {
                     const data = JSON.parse(response.responseText);
                     const expandedURL = data.expanded_url || shortLink; // Fallback to the original shortLink if finalUrl is not available.
-                    console.debug(`${expandLinkApi}${encodeURIComponent(shortLink)} -> ${expandedURL}`);
+                    console.debug(`[short url] ${expandLinkApi}${encodeURIComponent(shortLink)} -> ${expandedURL}`);
                     callback(expandedURL);
                 } else {
-                    console.debug("Failed to expand link:", response.status, response.statusText);
+                    console.debug("[short url] Failed to expand link:", response.status, response.statusText);
                     callback(shortLink);
                 }
             },
@@ -57,7 +58,7 @@
             }
         }
         else {
-            console.debug(`short url: ${redirectUrl}`);
+            console.debug(`[short url]: ${redirectUrl}`);
             expandShortLink(redirectUrl, callback);
         }
         return null;
