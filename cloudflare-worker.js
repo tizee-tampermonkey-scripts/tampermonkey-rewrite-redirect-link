@@ -21,14 +21,14 @@ async function expandShortLink(shortLink) {
     }
   } catch (error) {
     console.error(`Error expanding short link: ${error}`);
-    throw error; 
+    throw error;
   }
 }
 
 export default {
-  async fetch(request, env, ctx) { 
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const shortLink = url.searchParams.get('shorturl');  
+    const shortLink = url.searchParams.get('shorturl');
 
     if (!shortLink) {
       return new Response("Please provide a 'shorturl' parameter.", { status: 400 });
@@ -40,7 +40,7 @@ export default {
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
     } catch (error) {
-      console.error("Error during short URL expansion:", error); 
+      console.error("Error during short URL expansion:", error);
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
