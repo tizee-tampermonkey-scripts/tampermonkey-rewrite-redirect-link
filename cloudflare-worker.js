@@ -1,12 +1,11 @@
 async function expandShortLink(shortLink) {
   try {
     const response = await fetch(shortLink, {
-      // prevent auto-redirect
-      redirect: 'manual'
+      redirect: 'manual' // 阻止自动重定向
     });
 
     if (response.status >= 300 && response.status < 400) {
-      // redirect
+      // 重定向
       const location = response.headers.get('Location');
       if (location) {
         return location;
@@ -34,11 +33,40 @@ export default {
       return new Response("Please provide a 'shorturl' parameter.", { status: 400 });
     }
 
+    // Generate a cache key based on the shortLink
+    const cacheKey = `https://${url.hostname}/expand-shortlink?url=${encodeURIComponent(shortLink)}`;
+
     try {
-      const expandedLink = await expandShortLink(shortLink);
-      return new Response(JSON.stringify({ expanded_url: expandedLink }), {
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      // Try to fetch the expansion with caching
+      let response = await fetch(request, {
+        cf: {
+          // Cache for 1 hour (3600 seconds)
+          cacheTtl: 3600,
+          cacheEverything: true,
+          // Custom cache key to ensure we're caching based on the short URL
+          cacheKey: cacheKey
+        }
       });
+
+      // If we have a cache hit, return the cached response
+      const cacheStatus = response.headers.get('cf-cache-status');
+      if (cacheStatus === 'HIT') {
+        return response;
+      }
+
+      // If not cached, perform the expansion
+      const expandedLink = await expandShortLink(shortLink);
+
+      // Create a new response with proper cache headers
+      response = new Response(JSON.stringify({ expanded_url: expandedLink }), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          // Set browser cache for 30 minutes
+          'Cache-Control': 'max-age=1800'
+        }
+      });
+
+      return response;
     } catch (error) {
       console.error("Error during short URL expansion:", error);
       return new Response(JSON.stringify({ error: error.message }), {
