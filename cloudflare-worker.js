@@ -62,49 +62,24 @@ async function expandShortLink(shortLink, maxRedirects = 5) {
     return await handleBilibili(shortLink);
   }
 
-  let currentUrl = shortLink;
-  let redirectCount = 0;
-
-  // 设置通用请求头，模拟浏览器行为
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
-  };
-
   try {
-    while (redirectCount < maxRedirects) {
-      const response = await fetch(currentUrl, {
-        redirect: 'manual', // 阻止自动重定向
-        headers: headers
-      });
-
-      if (response.status >= 300 && response.status < 400) {
-        // 获取重定向位置
-        const location = response.headers.get('Location');
-        if (!location) {
-          throw new Error("重定向URL未在响应头中找到");
-        }
-
-        // 更新当前URL为重定向目标
-        currentUrl = new URL(location, currentUrl).href;
-        redirectCount++;
-
-        // 检查是否重定向到了B站
-        if (currentUrl.includes('bilibili')) {
-          return await handleBilibili(currentUrl);
-        }
-      } else if (response.ok) {
-        // 不再有重定向，结束循环
-        break;
-      } else {
-        throw new Error(`HTTP错误! 状态码: ${response.status}`);
+    const response = await fetch(shortLink, {
+      redirect: 'manual' // 阻止自动重定向
+    });
+    console.log(response)
+    if (response.status >= 300 && response.status < 400) {
+      // 获取重定向位置
+      const location = response.headers.get('Location');
+      if (!location) {
+        throw new Error("重定向URL未在响应头中找到");
       }
+      console.error("get location", location);
+      return location;
+    } else if (response.ok) {
+      return shortLink;
+    } else {
+      throw new Error(`HTTP错误! 状态码: ${response.status}`);
     }
-
-    return currentUrl;
   } catch (error) {
     console.error(`展开短链接时出错: ${error}`);
     throw error;
@@ -166,7 +141,7 @@ export default {
     const shortLink = url.searchParams.get('shorturl');
 
     if (!shortLink) {
-      return new Response("请提供'shorturl'参数。", { status: 400 });
+      return new Response("请提供'shorturl'参数。", {status: 400});
     }
 
     // 根据shortLink生成缓存键
@@ -213,9 +188,9 @@ export default {
       return response;
     } catch (error) {
       console.error("短URL展开过程中出错:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({error: error.message}), {
         status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
       });
     }
   },
