@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link
-// @version      1.7.1
+// @version      1.7.2
 // @description  Rewrites redirect links to their target URLs directly, using a queue and a custom debounce function.
 // @downloadURL  https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @updateURL    https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
@@ -37,7 +37,8 @@
     const shortUrlPatterns = [
         { regex: /t\.co\/\w+/i, name: 't.co' },
         { regex: /bit\.ly\/\w+/i, name: 'bit.ly' },
-        { regex: /git\.new\/\w+/i, name: 'git.new' }
+        { regex: /git\.new\/\w+/i, name: 'git.new' },
+        { regex: /s\.ee\/[-\w]+/i, name: 's.ee' }
     ];
 
     // Check if a URL is a short URL

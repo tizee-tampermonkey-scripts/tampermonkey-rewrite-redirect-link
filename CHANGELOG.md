@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
+- 🤖 feat(rewrite-redirect-link): Bump version to 1.7.2 and add s.ee to short URL patterns 🚀
+
+- Updated version from 1.7.1 to 1.7.2 in `rewrite-redirect-link.js` to support s.ee short links 🚀
+- Added `s.ee` to the list of short URL patterns in `rewrite-redirect-link.js` to handle links like https://s.ee/cf-ios 🕸️
+
+Summary: Now we can rewrite those pesky s.ee links too! 🎉
+
 - 🤖 feat(rewrite-redirect-link): Bump version to 1.7.1 and add git.new to short URL patterns 🚀
 
 - Updated version from 1.7.0 to 1.7.1 in `rewrite-redirect-link.js` because we're moving fast and breaking things 💥
