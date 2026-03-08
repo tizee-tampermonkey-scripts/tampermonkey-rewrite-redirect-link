@@ -1,8 +1,9 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link
-// @version      1.8.0
+// @version      1.9.0
 // @description  Rewrites redirect links to their target URLs directly, using a queue and a custom debounce function.
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=x.com
 // @downloadURL  https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @updateURL    https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
 // @author       tizee
@@ -30,46 +31,44 @@
     // --- Settings ---
     let expandLinkApi = GM_getValue(RESOLVER_KEY) || 'https://your-worker.workers.dev';
 
-    // Built-in patterns (always present, not removable)
-    const BUILTIN_SHORT_URL_PATTERNS = [
+    // Default patterns -- used as seed on first run
+    const DEFAULT_PATTERNS = [
         { regex: 't\\.co/\\w+', name: 't.co' },
         { regex: 'bit\\.ly/\\w+', name: 'bit.ly' },
         { regex: 'git\\.new/\\w+', name: 'git.new' },
         { regex: 's\\.ee/[-\\w]+', name: 's.ee' },
-        { regex: 'b23\\.tv/\\w+', name: 'b23.tv'}
+        { regex: 'b23\\.tv/\\w+', name: 'b23.tv' },
     ];
 
-    function loadCustomPatterns() {
+    function loadPatterns() {
         const saved = GM_getValue(CUSTOM_PATTERNS_KEY);
-        if (!saved) return [];
+        if (!saved) return DEFAULT_PATTERNS.map(p => ({ ...p }));
         try {
             const arr = JSON.parse(saved);
-            return Array.isArray(arr) ? arr : [];
+            return Array.isArray(arr) && arr.length > 0 ? arr : DEFAULT_PATTERNS.map(p => ({ ...p }));
         } catch {
-            return [];
+            return DEFAULT_PATTERNS.map(p => ({ ...p }));
         }
     }
 
-    function saveCustomPatterns(patterns) {
+    function savePatterns(patterns) {
         GM_setValue(CUSTOM_PATTERNS_KEY, JSON.stringify(patterns));
     }
 
-    let customPatterns = loadCustomPatterns();
+    let userPatterns = loadPatterns();
 
-    // Build the active regex list from built-in + custom
-    function getShortUrlPatterns() {
-        const all = [...BUILTIN_SHORT_URL_PATTERNS, ...customPatterns];
-        return all.map(p => ({
+    function compilePatterns(patterns) {
+        return patterns.map(p => ({
             regex: new RegExp(p.regex, 'i'),
             name: p.name,
         }));
     }
 
-    let shortUrlPatterns = getShortUrlPatterns();
+    let shortUrlPatterns = compilePatterns(userPatterns);
 
     function refreshPatterns() {
-        customPatterns = loadCustomPatterns();
-        shortUrlPatterns = getShortUrlPatterns();
+        userPatterns = loadPatterns();
+        shortUrlPatterns = compilePatterns(userPatterns);
     }
 
     // Queue to store links that need to be processed
@@ -424,10 +423,6 @@
             font-size: 13px;
         }
 
-        .rrl-pattern-item.builtin {
-            opacity: 0.6;
-        }
-
         .rrl-pattern-name {
             font-weight: 600;
             color: #e7e9ea;
@@ -444,13 +439,21 @@
             white-space: nowrap;
         }
 
-        .rrl-pattern-badge {
-            font-size: 10px;
+        .rrl-pattern-edit {
+            background: transparent;
+            border: none;
+            color: #71767b;
+            cursor: pointer;
             padding: 2px 6px;
             border-radius: 4px;
-            background: rgba(255, 255, 255, 0.06);
-            color: #71767b;
+            font-size: 12px;
+            transition: all 0.15s;
             flex-shrink: 0;
+        }
+
+        .rrl-pattern-edit:hover {
+            color: #1d9bf0;
+            background: rgba(29, 155, 240, 0.1);
         }
 
         .rrl-pattern-delete {
@@ -662,70 +665,54 @@
 
         const patternsDesc = document.createElement('div');
         patternsDesc.className = 'rrl-desc';
-        patternsDesc.textContent = 'Regex patterns to detect short URLs. Built-in patterns cannot be removed. Custom patterns are saved immediately when added/removed.';
+        patternsDesc.textContent = 'Regex patterns to detect short URLs. All patterns are editable. Use "Reset to Defaults" to restore the original set.';
 
         const patternList = document.createElement('div');
         patternList.className = 'rrl-pattern-list';
 
-        // Working copy of custom patterns for this session
-        let draftCustom = customPatterns.map(p => ({ ...p }));
+        // Working copy of all patterns for editing
+        let draftPatterns = userPatterns.map(p => ({ ...p }));
 
         function renderPatterns() {
             patternList.innerHTML = '';
 
-            // Built-in patterns
-            for (const p of BUILTIN_SHORT_URL_PATTERNS) {
-                const item = document.createElement('div');
-                item.className = 'rrl-pattern-item builtin';
-
-                const name = document.createElement('span');
-                name.className = 'rrl-pattern-name';
-                name.textContent = p.name;
-
-                const regex = document.createElement('span');
-                regex.className = 'rrl-pattern-regex';
-                regex.textContent = p.regex;
-
-                const badge = document.createElement('span');
-                badge.className = 'rrl-pattern-badge';
-                badge.textContent = 'built-in';
-
-                item.appendChild(name);
-                item.appendChild(regex);
-                item.appendChild(badge);
-                patternList.appendChild(item);
-            }
-
-            // Custom patterns
-            for (let i = 0; i < draftCustom.length; i++) {
-                const p = draftCustom[i];
+            for (let i = 0; i < draftPatterns.length; i++) {
+                const p = draftPatterns[i];
                 const item = document.createElement('div');
                 item.className = 'rrl-pattern-item';
 
-                const name = document.createElement('span');
-                name.className = 'rrl-pattern-name';
-                name.textContent = p.name;
+                const nameEl = document.createElement('span');
+                nameEl.className = 'rrl-pattern-name';
+                nameEl.textContent = p.name;
 
-                const regex = document.createElement('span');
-                regex.className = 'rrl-pattern-regex';
-                regex.textContent = p.regex;
+                const regexEl = document.createElement('span');
+                regexEl.className = 'rrl-pattern-regex';
+                regexEl.textContent = p.regex;
 
-                const badge = document.createElement('span');
-                badge.className = 'rrl-pattern-badge';
-                badge.textContent = 'custom';
+                const editBtn = document.createElement('button');
+                editBtn.className = 'rrl-pattern-edit';
+                editBtn.textContent = 'edit';
+                editBtn.title = 'Edit pattern';
+                editBtn.addEventListener('click', () => {
+                    addNameInput.value = p.name;
+                    addRegexInput.value = p.regex;
+                    draftPatterns.splice(i, 1);
+                    renderPatterns();
+                    addNameInput.focus();
+                });
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'rrl-pattern-delete';
                 deleteBtn.innerHTML = '&times;';
                 deleteBtn.title = 'Remove pattern';
                 deleteBtn.addEventListener('click', () => {
-                    draftCustom.splice(i, 1);
+                    draftPatterns.splice(i, 1);
                     renderPatterns();
                 });
 
-                item.appendChild(name);
-                item.appendChild(regex);
-                item.appendChild(badge);
+                item.appendChild(nameEl);
+                item.appendChild(regexEl);
+                item.appendChild(editBtn);
                 item.appendChild(deleteBtn);
                 patternList.appendChild(item);
             }
@@ -775,14 +762,13 @@
             }
 
             // Check for duplicate name
-            const allNames = [...BUILTIN_SHORT_URL_PATTERNS, ...draftCustom].map(p => p.name);
-            if (allNames.includes(name)) {
+            if (draftPatterns.some(p => p.name === name)) {
                 addError.textContent = `Pattern "${name}" already exists.`;
                 addError.classList.add('show');
                 return;
             }
 
-            draftCustom.push({ name, regex });
+            draftPatterns.push({ name, regex });
             addNameInput.value = '';
             addRegexInput.value = '';
             renderPatterns();
@@ -811,7 +797,7 @@
         resetBtn.textContent = 'Reset to Defaults';
         resetBtn.addEventListener('click', () => {
             apiInput.value = 'https://your-worker.workers.dev';
-            draftCustom = [];
+            draftPatterns = DEFAULT_PATTERNS.map(p => ({ ...p }));
             renderPatterns();
             showToast('Reset to defaults (save to apply)');
         });
@@ -827,8 +813,8 @@
                 GM_setValue(RESOLVER_KEY, newApi);
             }
 
-            // Save custom patterns
-            saveCustomPatterns(draftCustom);
+            // Save patterns
+            savePatterns(draftPatterns);
             refreshPatterns();
 
             showToast('Settings saved');
