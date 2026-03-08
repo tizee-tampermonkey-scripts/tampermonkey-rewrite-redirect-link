@@ -36,7 +36,7 @@
         { regex: 'bit\\.ly/\\w+', name: 'bit.ly' },
         { regex: 'git\\.new/\\w+', name: 'git.new' },
         { regex: 's\\.ee/[-\\w]+', name: 's.ee' },
-        { regex: 'b23\.tv\/\w+', name: 'b23.tv'}
+        { regex: 'b23\\.tv/\\w+', name: 'b23.tv'}
     ];
 
     function loadCustomPatterns() {
