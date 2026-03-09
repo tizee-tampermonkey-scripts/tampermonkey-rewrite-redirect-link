@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rewrite Redirect Links
 // @namespace    https://github.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link
-// @version      1.9.0
+// @version      1.10.0
 // @description  Rewrites redirect links to their target URLs directly, using a queue and a custom debounce function.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=x.com
 // @downloadURL  https://raw.githubusercontent.com/tizee-tampermonkey-scripts/tampermonkey-rewrite-redirect-link/main/rewrite-redirect-link.js
@@ -73,6 +73,12 @@
 
     // Queue to store links that need to be processed
     const linkQueue = new Set();
+
+    // Cache: original short URL -> expanded URL (avoids redundant API calls)
+    const resolvedCache = new Map();
+
+    // Data attribute to mark processed links
+    const RESOLVED_ATTR = 'data-rrl-resolved';
 
     // Configuration for different types of redirect/short links
     const redirectPatterns = [
@@ -191,14 +197,44 @@
         }
     }
 
+    // Apply resolved URL to a link element
+    function applyResolvedUrl(link, originalUrl, resolvedUrl) {
+        link.href = resolvedUrl;
+        link.setAttribute(RESOLVED_ATTR, resolvedUrl);
+        updateLinkText(link, originalUrl, resolvedUrl);
+    }
+
     // Function to process a single link
     function processLink(link) {
         const originalUrl = link.href;
+        const alreadyResolved = link.getAttribute(RESOLVED_ATTR);
+
+        // Link was already processed and href still matches -- skip
+        if (alreadyResolved && link.href === alreadyResolved) {
+            return;
+        }
+
+        // X app re-rendered and overwrote href back to t.co, but our attribute survived
+        // Re-apply from attribute without API call
+        if (alreadyResolved && isShortUrl(originalUrl)) {
+            console.debug(`[reapply] ${originalUrl} -> ${alreadyResolved}`);
+            applyResolvedUrl(link, originalUrl, alreadyResolved);
+            return;
+        }
+
+        // Check the in-memory cache for this URL
+        if (resolvedCache.has(originalUrl)) {
+            const cached = resolvedCache.get(originalUrl);
+            console.debug(`[cache hit] ${originalUrl} -> ${cached}`);
+            applyResolvedUrl(link, originalUrl, cached);
+            return;
+        }
+
         extractTargetUrl(originalUrl, function(targetUrl) {
             if (targetUrl) {
                 console.debug(`${originalUrl} -> ${targetUrl}`);
-                link.href = targetUrl;
-                updateLinkText(link, originalUrl, targetUrl);
+                resolvedCache.set(originalUrl, targetUrl);
+                applyResolvedUrl(link, originalUrl, targetUrl);
             }
         });
     }
@@ -225,6 +261,16 @@
     // Debounced version of processQueue
     const debouncedProcessQueue = debounce(processQueue, 500);
 
+    // Check if a link needs (re-)processing
+    function linkNeedsProcessing(link) {
+        const resolved = link.getAttribute(RESOLVED_ATTR);
+        // Never processed
+        if (!resolved) return true;
+        // X overwrote href back to a short URL
+        if (link.href !== resolved && isShortUrl(link.href)) return true;
+        return false;
+    }
+
     // Function to scan for links in a domain
     function scanForLinksInDomain(node, domain) {
         const domainConfig = redirectPatterns.find(pattern =>
@@ -237,19 +283,21 @@
         shortUrlPatterns.forEach(pattern => {
             const shortLinks = node.querySelectorAll(`a[href*="${pattern.name}"]`);
             shortLinks.forEach(link => {
-                if (!linkQueue.has(link)) {
+                if (linkNeedsProcessing(link)) {
                     linkQueue.add(link);
                 }
             });
         });
 
         links.forEach(link => {
-            if (!linkQueue.has(link)) {
+            if (linkNeedsProcessing(link)) {
                 linkQueue.add(link);
             }
         });
 
-        debouncedProcessQueue();
+        if (linkQueue.size > 0) {
+            debouncedProcessQueue();
+        }
     }
 
     function scanForLinks(node) {
@@ -258,20 +306,50 @@
 
     // MutationObserver callback
     function mutationHandler(mutationList) {
-        mutationList.forEach(mutationRecord => {
-            mutationRecord.addedNodes.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    scanForLinks(node);
+        let needsScan = false;
+
+        for (const mutation of mutationList) {
+            if (mutation.type === 'childList') {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        scanForLinks(node);
+                    }
                 }
-            });
-        });
+            } else if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
+                // X app overwrote an href -- re-scan the link's parent container
+                const target = mutation.target;
+                if (target.tagName === 'A' && isShortUrl(target.href)) {
+                    if (linkNeedsProcessing(target)) {
+                        linkQueue.add(target);
+                        needsScan = true;
+                    }
+                }
+            } else if (mutation.type === 'characterData') {
+                // Text content changed -- X may have replaced expanded text
+                // Re-scan the nearest tweet container
+                const tweetEl = mutation.target.parentElement?.closest('[data-testid="tweetText"]');
+                if (tweetEl) {
+                    scanForLinks(tweetEl);
+                }
+            }
+        }
+
+        if (needsScan) {
+            debouncedProcessQueue();
+        }
     }
 
     // Initialize the script
     function main() {
         scanForLinks(document.body);
         const observer = new MutationObserver(mutationHandler);
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['href'],
+            characterData: true,
+        });
     }
 
     // --- Settings Panel UI ---
